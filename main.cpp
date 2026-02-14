@@ -1,503 +1,247 @@
 #include <iostream>
-#include <cmath>
 #include <vector>
-#include <random>
-#include <cassert>
-#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
 
-class Neuron
-{
-public:
-    // fast digmoid function
-    //  f = x/(1+|x|)
-    void activate()
-    {
-        this->activatedVal = this->val / (1 + abs(this->val));
-    }
+using namespace std;
 
-    // derivative for fast sigmoid function
-    //  f' = f + (1-f)
-    void derive()
-    {
+// --- 1. Helper Functions (The Math) ---
 
-        this->derivedVal = this->activatedVal * (1 - this->activatedVal);
-    }
-    // getter
-    double getVal() { return this->val; }
-    void setVal(double val)
-    {
-        this->val = val;
-        activate();
-        derive();
-    }
-    double getActivatedVal() { return this->activatedVal; }
-    double getDerivedVal() { return this->derivedVal; }
-
-    Neuron(double val)
-    {
-        this->val = val;
-        activate();
-        derive();
-    }
-
-private:
-    double val;
-    double activatedVal;
-    double derivedVal;
-};
-
-class matrix
-{
-public:
-    matrix(int r, int c, bool isRandom)
-    {
-        this->r = r;
-        this->c = c;
-
-        if (isRandom)
-        {
-            for (int i = 0; i < r; i++)
-            {
-                std::vector<double> cols;
-                for (int j = 0; j < c; j++)
-                {
-                    cols.push_back(this->generatRandomNo());
-                }
-                this->values.push_back(cols);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < r; i++)
-            {
-                std::vector<double> cols(c);
-                for (int j = 0; j < c; j++)
-                {
-                    cols.push_back(0);
-                }
-                this->values.push_back(cols);
-            }
-        }
-    }
-    matrix *transpose()
-    {
-        matrix *t = new matrix(this->c, this->r, 0);
-        for (int i = 0; i < this->r; i++)
-        {
-            for (int j = 0; j < this->c; j++)
-            {
-                t->setVal(j, i, this->getVal(i, j));
-            }
-        }
-        return t;
-    }
-    void setVal(int r, int c, double v)
-    {
-        this->values.at(r).at(c) = v;
-    }
-    double getVal(int r, int c)
-    {
-        return this->values.at(r).at(c);
-    }
-    double generatRandomNo()
-    {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dis(0, 1);
-        return dis(gen);
-    }
-
-    void print()
-    {
-
-        for (int i = 0; i < this->r; i++)
-        {
-            for (int j = 0; j < this->c; j++)
-            {
-                std::cout << this->getVal(i, j) << "\t\t";
-            }
-            std::cout << "\n\n";
-        }
-    }
-    int getRows()
-    {
-        return this->r;
-    }
-    int getCols()
-    {
-        return this->c;
-    }
-
-private:
-    int r;
-    int c;
-    std::vector<std::vector<double>> values;
-};
-
-class layer
-{
-public:
-    layer(int size)
-    {
-        this->size = size;
-        for (int i = 0; i < size; i++)
-        {
-            Neuron *n = new Neuron(0.00);
-            this->neurons.push_back(n);
-        }
-    }
-    void setVal(int i, double val)
-    {
-        this->neurons.at(i)->setVal(val);
-    }
-
-    matrix *matrixifyVals()
-    {
-        matrix *m = new matrix(1, this->neurons.size(), false);
-        for (int i = 0; i < this->neurons.size(); i++)
-        {
-            m->setVal(0, i, this->neurons.at(i)->getVal());
-        }
-        return m;
-    }
-    matrix *matrixifyActivatedVals()
-    {
-        matrix *m = new matrix(1, this->neurons.size(), false);
-        for (int i = 0; i < this->neurons.size(); i++)
-        {
-            m->setVal(0, i, this->neurons.at(i)->getActivatedVal());
-        }
-        return m;
-    }
-    matrix *matrixifyDerivedVals()
-    {
-        matrix *m = new matrix(1, this->neurons.size(), false);
-        for (int i = 0; i < this->neurons.size(); i++)
-        {
-            m->setVal(0, i, this->neurons.at(i)->getDerivedVal());
-        }
-        return m;
-    }
-    std::vector<Neuron *> getNeurons() { return this->neurons; };
-
-public:
-    int size;
-    std::vector<Neuron *> neurons;
-};
-
-matrix *multMatrix(matrix *a, matrix *b)
-{
-    if (a->getCols() != b->getRows())
-    {
-        std::cerr << "A Cols: " << a->getCols() << "!= B Rows: " << b->getRows() << std::endl;
-        // assert(false);
-    }
-
-    matrix *c = new matrix(a->getRows(), b->getCols(), false);
-
-    for (int i = 0; i < a->getRows(); i++)
-    {
-        for (int j = 0; j < b->getCols(); j++)
-        {
-            for (int k = 0; k < b->getRows(); k++)
-            {
-                double p = a->getVal(i, k) * b->getVal(k, j);
-                double newVal = c->getVal(i, j) + p;
-                c->setVal(i, j, newVal);
-            }
-        }
-    }
-
-    return c;
+// Sigmoid Function: Squishes numbers to be between 0 and 1
+double sigmoid(double x) {
+    return 1.0 / (1.0 + exp(-x));
 }
 
-std::vector<double> matrixToVector(matrix *a)
-{
-    std::vector<double> result;
-    for (int i = 0; i < a->getRows(); i++)
-    {
-        for (int j = 0; j < a->getRows(); j++)
-        {
-            result.push_back(a->getVal(i, j));
-        }
-    }
-    return result;
+// Derivative of Sigmoid: Used for Backpropagation (The "Sensitivity")
+// If y = sigmoid(x), then derivative = y * (1 - y)
+double sigmoidDerivative(double y) {
+    return y * (1.0 - y);
 }
 
-class neuralNetwork
-{
-public:
-    neuralNetwork(std::vector<int> topology)
-    {
-        this->topology = topology;
-        this->topoSize = topology.size();
+// --- 2. The Neuron and Connection Structs ---
 
-        for (int i = 0; i < this->topoSize; i++)
-        {
-            layer *l = new layer(topology.at(i));
-            this->layers.push_back(l);
-        }
-        for (int i = 0; i < this->topoSize - 1; i++)
-        {
-            matrix *m = new matrix(topology.at(i), topology.at(i + 1), true);
-            this->weightmatrices.push_back(m);
-            // std::cout<<"yes\n";
-        }
-    }
-
-    matrix *getNeuronMatrix(int i)
-    {
-        return this->layers.at(i)->matrixifyVals();
-    }
-    matrix *getAditivatedNeuronMatrix(int i)
-    {
-        return this->layers.at(i)->matrixifyActivatedVals();
-    }
-    matrix *getDerivedNeuronMatrix(int i)
-    {
-        return this->layers.at(i)->matrixifyDerivedVals();
-    }
-
-    void setCurrentInput(std::vector<double> input)
-    {
-        this->input = input;
-
-        for (int i = 0; i < input.size(); i++)
-        {
-            this->layers.at(0)->setVal(i, input.at(i));
-        }
-    }
-    void setCurrentTarget(std::vector<double> target)
-    {
-        this->target = target;
-    }
-    void print()
-    {
-
-        for (int i = 0; i < this->layers.size(); i++)
-        {
-            std::cout << "LAYER: " << i << std::endl;
-            if (i == 0)
-            {
-                matrix *m = this->layers.at(i)->matrixifyVals();
-                m->print();
-            }
-            else
-            {
-                matrix *m = this->layers.at(i)->matrixifyActivatedVals();
-                m->print();
-            }
-            std::cout << "============================================================\n";
-            if (i < this->layers.size() - 2)
-            {
-                std::cout << "Weight Matrix: " << i << "\n";
-                this->getWeightMatrix(i)->print();
-            }
-            std::cout << "============================================================\n";
-        }
-    }
-    matrix *getWeightMatrix(int i) { return this->weightmatrices.at(i); }
-
-    void feedForward()
-    {
-
-        for (int i = 0; i < this->layers.size() - 1; i++)
-        {
-            matrix *a = this->getNeuronMatrix(i);
-            if (i != 0)
-            {
-                a = this->getAditivatedNeuronMatrix(i);
-            }
-            matrix *b = this->getWeightMatrix(i);
-            matrix *c = multMatrix(a, b);
-            std::vector<double> vals;
-            for (int j = 0; j < c->getCols(); j++)
-            {
-                vals.push_back(c->getVal(0, j));
-                this->setNeuronValue(i + 1, j, c->getVal(0, j));
-            }
-        }
-    }
-    void setNeuronValue(
-        int indexlayer, int indexNeuron, double val)
-    {
-        this->layers.at(indexlayer)->setVal(indexNeuron, val);
-    }
-    double getTotalError() { return this->error; }
-    std::vector<double> getErrors() { return this->errors; }
-
-    void setErrors()
-    {
-        if (this->target.size() == 0)
-        {
-            std::cerr << "no target for this neural network " << std::endl;
-            assert(false);
-        }
-        if (this->target.size() != this->layers.at(this->layers.size() - 1)->getNeurons().size())
-        {
-            std::cerr << "Target size is not same as output layer size: " << this->layers.at(this->layers.size() - 1)->getNeurons().size() << std::endl;
-            assert(false);
-        }
-        this->error = 0.00;
-        int outputLayerIndex = this->layers.size() - 1;
-        std::vector<Neuron *> outputNeurons = this->layers.at(outputLayerIndex)->getNeurons();
-
-        for (int i = 0; i < this->target.size(); i++)
-        {
-
-            double tempErr = (outputNeurons.at(i)->getActivatedVal() - this->target.at(i));
-            this->errors.push_back(tempErr);
-            this->error += tempErr;
-        }
-        historicalErrors.push_back(this->error);
-    }
-
-    void backProgation()
-    {
-        
-        matrix *gradient;
-        std::vector<matrix *> newWeights;
-        int outputLayerIndex = this->layers.size() - 1;
-        matrix *derivedValuesYtoZ = this->layers.at(outputLayerIndex)->matrixifyDerivedVals();
-        matrix *gradientsYtoZ = new matrix(1, this->layers.at(outputLayerIndex)->getNeurons().size(),false);
-        
-        for (int i = 0; i < this->errors.size(); i++)
-        {
-            
-            double d = derivedValuesYtoZ->getVal(0, i);
-            std::cout<<"00000\n";
-            double e = this->errors.at(i);
-            double g = d * e;
-            gradientsYtoZ->setVal(0, i, g);
-        }
-        int lastHiddenLayerIndex = outputLayerIndex - 1;
-        layer *lastHiddenLayer = this->layers.at(lastHiddenLayerIndex);
-        matrix *weightsOutputToHidden = this->weightmatrices.at(outputLayerIndex - 1);
-        matrix *deltaOutputToHidden = multMatrix(gradientsYtoZ->transpose(), lastHiddenLayer->matrixifyActivatedVals())->transpose();
-
-        matrix *newWeightOutputToHidden = new matrix(deltaOutputToHidden->getRows(), deltaOutputToHidden->getCols(), false);
-
-        for (int r = 0; r < deltaOutputToHidden->getRows(); r++)
-        {
-            for (int c = 0; c < deltaOutputToHidden->getCols(); c++)
-            {
-                double originalWeight = weightsOutputToHidden->getVal(r, c);
-                double deltaWeight = deltaOutputToHidden->getVal(r, c);
-                newWeightOutputToHidden->setVal(r, c, (originalWeight - deltaWeight));
-            }
-        }
-        newWeights.push_back(newWeightOutputToHidden);
-
-        gradient = new matrix(gradientsYtoZ->getRows(), gradientsYtoZ->getCols(), false);
-        for (int r = 0; r < gradientsYtoZ->getRows(); r++)
-        {
-            for (int c = 0; c < gradientsYtoZ->getCols(); c++)
-            {
-                gradient->setVal(r, c, gradientsYtoZ->getVal(r,c));
-            }
-        }
-
-
-
-
-
-        for (int i = (outputLayerIndex - 1); i > 0; i--)
-        {
-            layer *l = this->layers.at(i);
-            matrix *derivedHidden = l->matrixifyDerivedVals();
-            matrix *activatedHidden = l->matrixifyActivatedVals();
-            matrix *derivedGradients = new matrix(1, l->getNeurons().size(), false);
-            matrix *weightMatrix = this->weightmatrices.at(i);
-            matrix *OriginalweightMatrix = this->weightmatrices.at(i - 1);
-            for (int r = 0; r < derivedGradients->getRows(); r++)
-            {
-                double sum = 0;
-                for (int c = 0; c < derivedGradients->getCols(); c++)
-                {
-                    double p = gradient->getVal(0, c) * weightMatrix->getVal(r, c);
-                    sum += p;
-                }
-                double g = sum * activatedHidden->getVal(0, r);
-                derivedGradients->setVal(0, r, g);
-            }
-            
-            matrix *leftNeurons = (i - 1) == 0 ? this->layers.at(i - 1)->matrixifyVals() : this->layers.at(i - 1)->matrixifyActivatedVals();
-            matrix *deltaWeights = multMatrix(derivedGradients->transpose(), leftNeurons)->transpose();
-            matrix *newWeightsHidden = new matrix(deltaWeights->getRows(), deltaWeights->getCols(), false);
-
-            for (int r = 0; r < newWeightsHidden->getRows(); r++)
-            {
-                for (int c = 0; c < newWeightsHidden->getCols(); c++)
-                {
-                    double w = OriginalweightMatrix->getVal(r, c);
-
-                    double d = deltaWeights->getVal(r, c);
-                    
-                    double n = w - d;
-                    newWeightsHidden->setVal(r, c, n);
-                }
-            }
-            
-            gradient = new matrix(derivedGradients->getRows(), derivedGradients->getCols(), false);
-            for (int r = 0; r < derivedGradients->getRows(); r++)
-            {
-                for (int c = 0; c < derivedGradients->getCols(); c++)
-                {
-                    gradient->setVal(r, c, derivedGradients->getVal(r, c));
-                }
-            }
-            
-        // std::cout << "hello\n";
-            newWeights.push_back(newWeightsHidden);
-        }
-        // std::cout << "New weight size : " << newWeights.size() << std::endl;
-        // std::cout << "old weight size : " << this->weightmatrices.size() << std::endl;
-        // for(int i=0;i<newWeights.size();i++){
-        //     cout << i << ":\n";
-        //     newWeights.at(i)->print();
-        // }
-        std::reverse(newWeights.begin(), newWeights.end());
-        this->weightmatrices = newWeights;
-    }
-
-private:
-    int topoSize;
-    std::vector<int> topology;
-    std::vector<matrix *> weightmatrices;
-    std::vector<layer *> layers;
-    std::vector<double> input;
-    std::vector<double> target;
-    double error;
-    std::vector<double> errors;
-    std::vector<double> historicalErrors;
+struct Connection {
+    double weight;
+    double deltaWeight;
 };
 
-int main(int argc, char **argv)
-{
+class Neuron; // Forward declaration
 
-    // Neuron *n = new Neuron(0.9);
-    // matrix *m = new matrix(3,2,true);
-    // m->print();
-    // std::cout << "\n----------------------------------\n\n";
-    // m->transpose()->print();
+typedef vector<Neuron> Layer;
 
-    std::vector<double> input = {1, 0, 1};
-    std::vector<int> topology = {3, 2, 3};
-    neuralNetwork *nn = new neuralNetwork(topology);
-    nn->setCurrentInput(input);
-    nn->setCurrentTarget(input);
+// --- 3. The Neuron Class ---
+class Neuron {
+public:
+    Neuron(unsigned numOutputs, unsigned myIndex);
+    void setOutputVal(double val) { m_outputVal = val; }
+    double getOutputVal() const { return m_outputVal; }
+    void feedForward(const Layer &prevLayer);
+    void calcOutputGradients(double targetVal);
+    void calcHiddenGradients(const Layer &nextLayer);
+    void updateInputWeights(Layer &prevLayer);
 
-    // training
+private:
+    static double randomWeight() { return rand() / double(RAND_MAX); }
+    double m_outputVal;
+    vector<Connection> m_outputWeights; // Weights to the NEXT layer
+    unsigned m_myIndex;
+    double m_gradient;
+    double eta = 0.15; // Learning Rate (How fast we learn)
+    double alpha = 0.5; // Momentum (Keeps us moving in the right direction)
+};
 
-    for (int i = 0; i < 5; i++)
-    {
-        std::cout << "Epoc" << i << "\n";
-        nn->feedForward();
-        nn->setErrors();
+Neuron::Neuron(unsigned numOutputs, unsigned myIndex) {
+    for (unsigned c = 0; c < numOutputs; ++c) {
+        m_outputWeights.push_back(Connection());
+        m_outputWeights.back().weight = randomWeight();
+    }
+    m_myIndex = myIndex;
+}
 
-        std::cout << "Total Error: " << nn->getTotalError() << std::endl;
+void Neuron::feedForward(const Layer &prevLayer) {
+    double sum = 0.0;
+    // Loop through the previous layer's outputs and multiply by weights
+    for (unsigned n = 0; n < prevLayer.size(); ++n) {
+        sum += prevLayer[n].getOutputVal() * prevLayer[n].m_outputWeights[m_myIndex].weight;
+    }
+    m_outputVal = sigmoid(sum);
+}
 
-        nn->backProgation();
+void Neuron::calcOutputGradients(double targetVal) {
+    double delta = targetVal - m_outputVal; // Error: Target - Output
+    m_gradient = delta * sigmoidDerivative(m_outputVal);
+}
+void Neuron::calcHiddenGradients(const Layer &nextLayer) {
+    double dow = 0.0; // Sum of derivatives of weights
+
+    // Sum up the contributions of the errors sent to the next layer
+    for (unsigned n = 0; n < nextLayer.size() - 1; ++n) {
+        // CORRECTED LINE:
+        // We use OUR weights (m_outputWeights) that connect to the next layer
+        // Multiplied by the Next Layer's gradients.
+        dow += m_outputWeights[n].weight * nextLayer[n].m_gradient;
+    }
+
+    m_gradient = dow * sigmoidDerivative(m_outputVal);
+}
+
+void Neuron::updateInputWeights(Layer &prevLayer) {
+    // The weights to be updated are in the Connection container
+    // in the neurons in the preceding layer
+    for (unsigned n = 0; n < prevLayer.size(); ++n) {
+        Neuron &neuron = prevLayer[n];
+        double oldDeltaWeight = neuron.m_outputWeights[m_myIndex].deltaWeight;
+
+        // The Magic Formula: NewWeight = OldWeight + (LearningRate * Gradient * Input)
+        double newDeltaWeight =
+                // Individual input, magnified by the gradient and train rate:
+                eta * neuron.getOutputVal() * m_gradient
+                // Also add momentum = a fraction of the previous delta weight
+                + alpha * oldDeltaWeight;
+
+        neuron.m_outputWeights[m_myIndex].deltaWeight = newDeltaWeight;
+        neuron.m_outputWeights[m_myIndex].weight += newDeltaWeight;
+    }
+}
+
+// --- 4. The Network Class (The Manager) ---
+class Net {
+public:
+    Net(const vector<unsigned> &topology);
+    void feedForward(const vector<double> &inputVals);
+    void backProp(const vector<double> &targetVals);
+    void getResults(vector<double> &resultVals) const;
+    double getRecentAverageError(void) const { return m_recentAverageError; }
+
+private:
+    vector<Layer> m_layers; // m_layers[layerNum][neuronNum]
+    double m_error;
+    double m_recentAverageError;
+    double m_smoothingFactor = 100.0;
+};
+
+Net::Net(const vector<unsigned> &topology) {
+    unsigned numLayers = topology.size();
+    for (unsigned layerNum = 0; layerNum < numLayers; ++layerNum) {
+        m_layers.push_back(Layer());
+        // For each layer, create neurons + 1 bias neuron
+        unsigned numOutputs = (layerNum == numLayers - 1) ? 0 : topology[layerNum + 1];
+        
+        // Add neurons to the layer
+        for (unsigned neuronNum = 0; neuronNum <= topology[layerNum]; ++neuronNum) {
+            m_layers.back().push_back(Neuron(numOutputs, neuronNum));
+        }
+        
+        // Force the bias node's output to 1.0 (It's the constant)
+        m_layers.back().back().setOutputVal(1.0);
+    }
+}
+
+void Net::feedForward(const vector<double> &inputVals) {
+    // Assign (latch) the input values into the input neurons
+    for (unsigned i = 0; i < inputVals.size(); ++i) {
+        m_layers[0][i].setOutputVal(inputVals[i]);
+    }
+
+    // Forward propagation
+    for (unsigned layerNum = 1; layerNum < m_layers.size(); ++layerNum) {
+        Layer &prevLayer = m_layers[layerNum - 1];
+        for (unsigned n = 0; n < m_layers[layerNum].size() - 1; ++n) {
+            m_layers[layerNum][n].feedForward(prevLayer);
+        }
+    }
+}
+
+void Net::backProp(const vector<double> &targetVals) {
+    // Calculate overall net error (RMS of output neuron errors)
+    Layer &outputLayer = m_layers.back();
+    m_error = 0.0;
+
+    for (unsigned n = 0; n < outputLayer.size() - 1; ++n) {
+        double delta = targetVals[n] - outputLayer[n].getOutputVal();
+        m_error += delta * delta;
+    }
+    m_error /= (outputLayer.size() - 1); // get average error squared
+    m_error = sqrt(m_error); // RMS
+
+    // Implement a recent average measurement:
+    m_recentAverageError = (m_recentAverageError * m_smoothingFactor + m_error) / (m_smoothingFactor + 1.0);
+
+    // Calculate Output Layer Gradients
+    for (unsigned n = 0; n < outputLayer.size() - 1; ++n) {
+        outputLayer[n].calcOutputGradients(targetVals[n]);
+    }
+
+    // Calculate Hidden Layer Gradients
+    for (unsigned layerNum = m_layers.size() - 2; layerNum > 0; --layerNum) {
+        Layer &hiddenLayer = m_layers[layerNum];
+        Layer &nextLayer = m_layers[layerNum + 1];
+
+        for (unsigned n = 0; n < hiddenLayer.size(); ++n) {
+            hiddenLayer[n].calcHiddenGradients(nextLayer);
+        }
+    }
+
+    // Update Connection Weights
+    for (unsigned layerNum = m_layers.size() - 1; layerNum > 0; --layerNum) {
+        Layer &layer = m_layers[layerNum];
+        Layer &prevLayer = m_layers[layerNum - 1];
+
+        for (unsigned n = 0; n < layer.size() - 1; ++n) {
+            layer[n].updateInputWeights(prevLayer);
+        }
+    }
+}
+
+void Net::getResults(vector<double> &resultVals) const {
+    resultVals.clear();
+    for (unsigned n = 0; n < m_layers.back().size() - 1; ++n) {
+        resultVals.push_back(m_layers.back()[n].getOutputVal());
+    }
+}
+
+// --- 5. Main Function (The Training Loop) ---
+int main() {
+    srand(time(NULL));
+
+    // Topology: 2 Inputs, 2 Hidden Neurons, 1 Output
+    vector<unsigned> topology;
+    topology.push_back(2);
+    topology.push_back(2);
+    topology.push_back(1);
+    
+    Net myNet(topology);
+
+    // The XOR Data Table
+    // { Input A, Input B, Target Output }
+    vector<vector<double>> inputs = { {0,0}, {0,1}, {1,0}, {1,1} };
+    vector<vector<double>> targets = { {0},   {1},   {1},   {0}   };
+
+    cout << "Training..." << endl;
+
+    // Train for 5000 Epochs
+    for (int i = 0; i < 5000; ++i) {
+        // Pick a random index (0 to 3)
+        int idx = rand() % 4;
+        
+        myNet.feedForward(inputs[idx]);
+        myNet.backProp(targets[idx]);
+        
+        if (i % 1000 == 0) {
+            cout << "Epoch: " << i << " | Error: " << myNet.getRecentAverageError() << endl;
+        }
+    }
+
+    cout << "\n--- Final Results ---" << endl;
+    for (int i = 0; i < 4; ++i) {
+        myNet.feedForward(inputs[i]);
+        vector<double> results;
+        myNet.getResults(results);
+        
+        cout << "Input: " << inputs[i][0] << ", " << inputs[i][1];
+        cout << " | Output: " << results[0];
+        cout << " | Target: " << targets[i][0] << endl;
     }
 
     return 0;
