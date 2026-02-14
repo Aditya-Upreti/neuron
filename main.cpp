@@ -6,31 +6,28 @@
 
 using namespace std;
 
-// --- 1. Helper Functions (The Math) ---
 
-// Sigmoid Function: Squishes numbers to be between 0 and 1
+// sigmoid function: converts numbers to be between 0 and 1
 double sigmoid(double x) {
     return 1.0 / (1.0 + exp(-x));
 }
 
-// Derivative of Sigmoid: Used for Backpropagation (The "Sensitivity")
-// If y = sigmoid(x), then derivative = y * (1 - y)
+// derivative of sigmoid: Used for backpropagation (The "sensitivity")
+// if y = sigmoid(x), then derivative = y * (1 - y)
 double sigmoidDerivative(double y) {
     return y * (1.0 - y);
 }
 
-// --- 2. The Neuron and Connection Structs ---
 
 struct Connection {
     double weight;
     double deltaWeight;
 };
 
-class Neuron; // Forward declaration
+class Neuron; // forward declaration
 
 typedef vector<Neuron> Layer;
 
-// --- 3. The Neuron Class ---
 class Neuron {
 public:
     Neuron(unsigned numOutputs, unsigned myIndex);
@@ -44,11 +41,11 @@ public:
 private:
     static double randomWeight() { return rand() / double(RAND_MAX); }
     double m_outputVal;
-    vector<Connection> m_outputWeights; // Weights to the NEXT layer
+    vector<Connection> m_outputWeights; // weights to the next layer
     unsigned m_myIndex;
     double m_gradient;
-    double eta = 0.15; // Learning Rate (How fast we learn)
-    double alpha = 0.5; // Momentum (Keeps us moving in the right direction)
+    double eta = 0.15; // learning rate (how fast we learn)
+    double alpha = 0.5; // momentum (Keeps us moving in the right direction)
 };
 
 Neuron::Neuron(unsigned numOutputs, unsigned myIndex) {
@@ -61,7 +58,7 @@ Neuron::Neuron(unsigned numOutputs, unsigned myIndex) {
 
 void Neuron::feedForward(const Layer &prevLayer) {
     double sum = 0.0;
-    // Loop through the previous layer's outputs and multiply by weights
+    // loop through the previous layer's outputs and multiply by weights
     for (unsigned n = 0; n < prevLayer.size(); ++n) {
         sum += prevLayer[n].getOutputVal() * prevLayer[n].m_outputWeights[m_myIndex].weight;
     }
@@ -69,43 +66,35 @@ void Neuron::feedForward(const Layer &prevLayer) {
 }
 
 void Neuron::calcOutputGradients(double targetVal) {
-    double delta = targetVal - m_outputVal; // Error: Target - Output
+    double delta = targetVal - m_outputVal; // error: target - output
     m_gradient = delta * sigmoidDerivative(m_outputVal);
 }
 void Neuron::calcHiddenGradients(const Layer &nextLayer) {
-    double dow = 0.0; // Sum of derivatives of weights
+    double sum = 0.0; 
+    // sum of derivatives of weights
 
-    // Sum up the contributions of the errors sent to the next layer
+    // sum up the contributions of the errors sent to the next layer
     for (unsigned n = 0; n < nextLayer.size() - 1; ++n) {
-        // CORRECTED LINE:
-        // We use OUR weights (m_outputWeights) that connect to the next layer
-        // Multiplied by the Next Layer's gradients.
-        dow += m_outputWeights[n].weight * nextLayer[n].m_gradient;
+        
+        sum += m_outputWeights[n].weight * nextLayer[n].m_gradient;
     }
 
-    m_gradient = dow * sigmoidDerivative(m_outputVal);
+    m_gradient = sum * sigmoidDerivative(m_outputVal);
 }
 
 void Neuron::updateInputWeights(Layer &prevLayer) {
-    // The weights to be updated are in the Connection container
-    // in the neurons in the preceding layer
+
     for (unsigned n = 0; n < prevLayer.size(); ++n) {
         Neuron &neuron = prevLayer[n];
         double oldDeltaWeight = neuron.m_outputWeights[m_myIndex].deltaWeight;
 
-        // The Magic Formula: NewWeight = OldWeight + (LearningRate * Gradient * Input)
-        double newDeltaWeight =
-                // Individual input, magnified by the gradient and train rate:
-                eta * neuron.getOutputVal() * m_gradient
-                // Also add momentum = a fraction of the previous delta weight
-                + alpha * oldDeltaWeight;
+        double newDeltaWeight = eta * neuron.getOutputVal() * m_gradient + alpha * oldDeltaWeight;
 
         neuron.m_outputWeights[m_myIndex].deltaWeight = newDeltaWeight;
         neuron.m_outputWeights[m_myIndex].weight += newDeltaWeight;
     }
 }
 
-// --- 4. The Network Class (The Manager) ---
 class Net {
 public:
     Net(const vector<unsigned> &topology);
@@ -122,15 +111,15 @@ private:
 };
 
 Net::Net(const vector<unsigned> &topology) {
-    unsigned numLayers = topology.size();
-    for (unsigned layerNum = 0; layerNum < numLayers; ++layerNum) {
+    int numLayers = topology.size();
+    for (int l = 0; l < numLayers; ++l) {
         m_layers.push_back(Layer());
-        // For each layer, create neurons + 1 bias neuron
-        unsigned numOutputs = (layerNum == numLayers - 1) ? 0 : topology[layerNum + 1];
+        // for each layer, create neurons + 1 bias neuron
+        unsigned numOutputs = (l == numLayers - 1) ? 0 : topology[l + 1];
         
         // Add neurons to the layer
-        for (unsigned neuronNum = 0; neuronNum <= topology[layerNum]; ++neuronNum) {
-            m_layers.back().push_back(Neuron(numOutputs, neuronNum));
+        for (int j = 0; j <= topology[l]; ++j) {
+            m_layers.back().push_back(Neuron(numOutputs, j));
         }
         
         // Force the bias node's output to 1.0 (It's the constant)
@@ -140,15 +129,15 @@ Net::Net(const vector<unsigned> &topology) {
 
 void Net::feedForward(const vector<double> &inputVals) {
     // Assign (latch) the input values into the input neurons
-    for (unsigned i = 0; i < inputVals.size(); ++i) {
+    for (int i = 0; i < inputVals.size(); ++i) {
         m_layers[0][i].setOutputVal(inputVals[i]);
     }
 
     // Forward propagation
-    for (unsigned layerNum = 1; layerNum < m_layers.size(); ++layerNum) {
-        Layer &prevLayer = m_layers[layerNum - 1];
-        for (unsigned n = 0; n < m_layers[layerNum].size() - 1; ++n) {
-            m_layers[layerNum][n].feedForward(prevLayer);
+    for (int l = 1; l < m_layers.size(); ++l) {
+        Layer &prevLayer = m_layers[l - 1];
+        for (unsigned n = 0; n < m_layers[l].size() - 1; ++n) {
+            m_layers[l][n].feedForward(prevLayer);
         }
     }
 }
@@ -221,14 +210,14 @@ int main() {
     cout << "Training..." << endl;
 
     // Train for 5000 Epochs
-    for (int i = 0; i < 5000; ++i) {
+    for (int i = 0; i < 7000; ++i) {
         // Pick a random index (0 to 3)
         int idx = rand() % 4;
         
         myNet.feedForward(inputs[idx]);
         myNet.backProp(targets[idx]);
         
-        if (i % 1000 == 0) {
+        if (i % 10 == 0) {
             cout << "Epoch: " << i << " | Error: " << myNet.getRecentAverageError() << endl;
         }
     }
